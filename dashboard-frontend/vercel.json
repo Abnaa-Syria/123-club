@@ -1,5 +1,4 @@
 {
-  "//": "Ensure client-side routes like /login work on Vercel by always serving index.html",
   "rewrites": [
     {
       "source": "/(.*)",
