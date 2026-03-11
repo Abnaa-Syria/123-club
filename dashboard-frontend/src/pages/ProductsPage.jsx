@@ -1,9 +1,31 @@
+import { useEffect, useState } from 'react';
 import GenericCrudPage from './GenericCrudPage';
-import { productsAPI } from '../api/services';
+import { productsAPI, productCategoriesAPI } from '../api/services';
 import { formatNumber, truncate } from '../utils/helpers';
 import ImageUpload from '../components/ImageUpload';
 
 function Form({ formData, setFormData }) {
+  const [categories, setCategories] = useState([]);
+
+  useEffect(() => {
+    let isMounted = true;
+
+    productCategoriesAPI
+      .list({ limit: 100 })
+      .then((res) => {
+        if (!isMounted) return;
+        const data = res.data?.data || res.data || [];
+        setCategories(Array.isArray(data) ? data : []);
+      })
+      .catch(() => {
+        if (isMounted) setCategories([]);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   return (
     <div className="space-y-4">
       <div>
@@ -11,8 +33,19 @@ function Form({ formData, setFormData }) {
         <input type="text" value={formData.name || ''} onChange={(e) => setFormData({ ...formData, name: e.target.value })} className="input-field" />
       </div>
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Category ID</label>
-        <input type="text" value={formData.categoryId || ''} onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })} className="input-field" placeholder="Paste category ID" />
+        <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+        <select
+          className="input-field"
+          value={formData.categoryId || ''}
+          onChange={(e) => setFormData({ ...formData, categoryId: e.target.value || null })}
+        >
+          <option value="">Select category</option>
+          {categories.map((cat) => (
+            <option key={cat.id} value={cat.id}>
+              {cat.name}
+            </option>
+          ))}
+        </select>
       </div>
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
