@@ -1,0 +1,62 @@
+########################################
+# Node / General
+########################################
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+dist/
+build/
+coverage/
+.turbo/
+.parcel-cache/
+.cache/
+
+########################################
+# Environment & Secrets
+########################################
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+########################################
+# Logs & Runtime
+########################################
+logs/
+*.log
+*.log.*
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+########################################
+# OS / Editor Files
+########################################
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.idea/
+.vscode/
+*.iml
+
+########################################
+# Backend Specific
+########################################
+backend/uploads/
+backend/prisma/dev.db
+backend/prisma/dev.db-journal
+
+########################################
+# Frontend (Vite / React)
+########################################
+dashboard-frontend/node_modules/
+dashboard-frontend/dist/
+dashboard-frontend/.vite/
+
+

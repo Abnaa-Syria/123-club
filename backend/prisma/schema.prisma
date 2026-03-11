@@ -1,0 +1,665 @@
+// ============================================
+// 123 Club - Prisma Schema
+// Database: MySQL
+// ============================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+enum UserRole {
+  SUPER_ADMIN
+  CHILD
+  PARENT
+  TEACHER
+  SCHOOL
+}
+
+enum AccountStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum MembershipLevel {
+  BRONZE
+  SILVER
+  GOLD
+  PLATINUM
+}
+
+enum ContentType {
+  VIDEO
+  BOOK_STORY
+  SONG
+  GAME
+}
+
+enum ContentStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum NotificationType {
+  ORDER_UPDATE
+  POINTS_UPDATE
+  NEW_CONTENT
+  SYSTEM
+  PROMO
+  REFERRAL
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PROCESSING
+  COMPLETED
+  CANCELLED
+}
+
+enum PointsTransactionType {
+  EARNED
+  REDEEMED
+  EXPIRED
+  ADMIN_ADD
+  ADMIN_DEDUCT
+  REFERRAL_BONUS
+  SIGNUP_BONUS
+}
+
+enum BannerType {
+  HOME
+  PROMO
+  SEASONAL
+  CAMPAIGN
+}
+
+// ============================================
+// USER & AUTH MODELS
+// ============================================
+
+model User {
+  id            String        @id @default(uuid())
+  email         String        @unique
+  phone         String?       @unique
+  password      String
+  role          UserRole      @default(CHILD)
+  status        AccountStatus @default(ACTIVE)
+  emailVerified Boolean       @default(false)
+  lastLoginAt   DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  // Relations
+  profile         Profile?
+  childProfile    ChildProfile?
+  parentProfile   ParentProfile?
+  teacherProfile  TeacherProfile?
+  schoolProfile   SchoolProfile?
+  membershipCard  MembershipCard?
+  pointsWallet    PointsWallet?
+  cart            Cart?
+  orders          Order[]
+  notifications   Notification[]
+  refreshTokens   RefreshToken[]
+  deviceTokens    DeviceToken[]
+  referralsSent   Referral[]       @relation("ReferrerUser")
+  referralsUsed   Referral[]       @relation("ReferredUser")
+  adminLogs       AdminActivityLog[]
+  selectedAvatar  UserAvatar?
+
+  @@index([role])
+  @@index([status])
+  @@index([createdAt])
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique @db.VarChar(500)
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("refresh_tokens")
+}
+
+model DeviceToken {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @db.VarChar(500)
+  platform  String?  @db.VarChar(20)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("device_tokens")
+}
+
+// ============================================
+// PROFILE MODELS
+// ============================================
+
+model Profile {
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  firstName   String   @db.VarChar(100)
+  lastName    String   @db.VarChar(100)
+  displayName String?  @db.VarChar(100)
+  avatarUrl   String?  @db.VarChar(500)
+  gender      Gender?
+  birthDate   DateTime?
+  country     String?  @db.VarChar(100)
+  city        String?  @db.VarChar(100)
+  bio         String?  @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("profiles")
+}
+
+model ChildProfile {
+  id         String   @id @default(uuid())
+  userId     String   @unique
+  schoolName String?  @db.VarChar(200)
+  grade      String?  @db.VarChar(50)
+  interests  String?  @db.Text
+  parentId   String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("child_profiles")
+}
+
+model ParentProfile {
+  id             String   @id @default(uuid())
+  userId         String   @unique
+  numberOfChildren Int?   @default(0)
+  occupation     String?  @db.VarChar(200)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("parent_profiles")
+}
+
+model TeacherProfile {
+  id             String   @id @default(uuid())
+  userId         String   @unique
+  schoolName     String?  @db.VarChar(200)
+  specialization String?  @db.VarChar(200)
+  yearsOfExp     Int?     @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("teacher_profiles")
+}
+
+model SchoolProfile {
+  id             String   @id @default(uuid())
+  userId         String   @unique
+  schoolName     String   @db.VarChar(300)
+  contactPerson  String?  @db.VarChar(200)
+  contactEmail   String?  @db.VarChar(200)
+  contactPhone   String?  @db.VarChar(30)
+  address        String?  @db.Text
+  website        String?  @db.VarChar(300)
+  studentsCount  Int?     @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("school_profiles")
+}
+
+// ============================================
+// AVATAR / CHARACTER
+// ============================================
+
+model Avatar {
+  id          String   @id @default(uuid())
+  name        String   @db.VarChar(100)
+  imageUrl    String   @db.VarChar(500)
+  description String?  @db.Text
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  userAvatars UserAvatar[]
+
+  @@map("avatars")
+}
+
+model UserAvatar {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  avatarId  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  avatar Avatar @relation(fields: [avatarId], references: [id], onDelete: Cascade)
+
+  @@index([avatarId])
+  @@map("user_avatars")
+}
+
+// ============================================
+// MEMBERSHIP
+// ============================================
+
+model MembershipPlan {
+  id          String          @id @default(uuid())
+  name        String          @db.VarChar(100)
+  slug        String          @unique @db.VarChar(100)
+  description String?         @db.Text
+  level       MembershipLevel @default(BRONZE)
+  price       Decimal         @default(0) @db.Decimal(10, 2)
+  durationDays Int            @default(365)
+  benefits    String?         @db.Text
+  pointsBonus Int             @default(0)
+  isActive    Boolean         @default(true)
+  sortOrder   Int             @default(0)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  membershipCards MembershipCard[]
+
+  @@map("membership_plans")
+}
+
+model MembershipCard {
+  id           String          @id @default(uuid())
+  userId       String          @unique
+  planId       String
+  memberId     String          @unique @db.VarChar(20)
+  level        MembershipLevel @default(BRONZE)
+  startDate    DateTime        @default(now())
+  endDate      DateTime?
+  isActive     Boolean         @default(true)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  user User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan MembershipPlan @relation(fields: [planId], references: [id])
+
+  @@index([planId])
+  @@index([memberId])
+  @@map("membership_cards")
+}
+
+// ============================================
+// POINTS & WALLET
+// ============================================
+
+model PointsWallet {
+  id             String   @id @default(uuid())
+  userId         String   @unique
+  totalEarned    Int      @default(0)
+  totalRedeemed  Int      @default(0)
+  totalExpired   Int      @default(0)
+  currentBalance Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions PointsTransaction[]
+
+  @@map("points_wallets")
+}
+
+model PointsTransaction {
+  id          String                @id @default(uuid())
+  walletId    String
+  type        PointsTransactionType
+  amount      Int
+  balanceAfter Int
+  description String?               @db.VarChar(500)
+  referenceId String?               @db.VarChar(100)
+  createdAt   DateTime              @default(now())
+
+  wallet PointsWallet @relation(fields: [walletId], references: [id], onDelete: Cascade)
+
+  @@index([walletId])
+  @@index([type])
+  @@index([createdAt])
+  @@map("points_transactions")
+}
+
+// ============================================
+// CONTENT
+// ============================================
+
+model ContentCategory {
+  id          String      @id @default(uuid())
+  name        String      @db.VarChar(100)
+  slug        String      @unique @db.VarChar(100)
+  description String?     @db.Text
+  imageUrl    String?     @db.VarChar(500)
+  type        ContentType
+  isActive    Boolean     @default(true)
+  sortOrder   Int         @default(0)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  contentItems ContentItem[]
+
+  @@index([type])
+  @@map("content_categories")
+}
+
+model ContentItem {
+  id            String        @id @default(uuid())
+  categoryId    String
+  title         String        @db.VarChar(300)
+  slug          String        @unique @db.VarChar(300)
+  description   String?       @db.Text
+  thumbnailUrl  String?       @db.VarChar(500)
+  mediaUrl      String?       @db.VarChar(500)
+  type          ContentType
+  status        ContentStatus @default(DRAFT)
+  ageGroupMin   Int?          @default(0)
+  ageGroupMax   Int?          @default(18)
+  duration      Int?          @default(0)
+  author        String?       @db.VarChar(200)
+  isFeatured    Boolean       @default(false)
+  isRecommended Boolean       @default(false)
+  viewCount     Int           @default(0)
+  sortOrder     Int           @default(0)
+  publishedAt   DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  category ContentCategory @relation(fields: [categoryId], references: [id])
+
+  @@index([categoryId])
+  @@index([type])
+  @@index([status])
+  @@index([isFeatured])
+  @@map("content_items")
+}
+
+// ============================================
+// PRODUCTS & STORE
+// ============================================
+
+model ProductCategory {
+  id          String   @id @default(uuid())
+  name        String   @db.VarChar(100)
+  slug        String   @unique @db.VarChar(100)
+  description String?  @db.Text
+  imageUrl    String?  @db.VarChar(500)
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  products Product[]
+
+  @@map("product_categories")
+}
+
+model Product {
+  id            String   @id @default(uuid())
+  categoryId    String
+  name          String   @db.VarChar(300)
+  slug          String   @unique @db.VarChar(300)
+  description   String?  @db.Text
+  imageUrl      String?  @db.VarChar(500)
+  pointsCost    Int      @default(0)
+  stockQuantity Int      @default(0)
+  isActive      Boolean  @default(true)
+  isFeatured    Boolean  @default(false)
+  isRecommended Boolean  @default(false)
+  sortOrder     Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  category  ProductCategory @relation(fields: [categoryId], references: [id])
+  cartItems CartItem[]
+  orderItems OrderItem[]
+
+  @@index([categoryId])
+  @@index([isActive])
+  @@index([isFeatured])
+  @@map("products")
+}
+
+// ============================================
+// CART
+// ============================================
+
+model Cart {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user  User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items CartItem[]
+
+  @@map("carts")
+}
+
+model CartItem {
+  id        String   @id @default(uuid())
+  cartId    String
+  productId String
+  quantity  Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  cart    Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@unique([cartId, productId])
+  @@index([productId])
+  @@map("cart_items")
+}
+
+// ============================================
+// ORDERS
+// ============================================
+
+model Order {
+  id          String      @id @default(uuid())
+  userId      String
+  orderNumber String      @unique @db.VarChar(30)
+  status      OrderStatus @default(PENDING)
+  totalPoints Int         @default(0)
+  itemCount   Int         @default(0)
+  notes       String?     @db.Text
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  user  User        @relation(fields: [userId], references: [id])
+  items OrderItem[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("orders")
+}
+
+model OrderItem {
+  id         String @id @default(uuid())
+  orderId    String
+  productId  String
+  quantity   Int    @default(1)
+  pointsCost Int    @default(0)
+  createdAt  DateTime @default(now())
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+  @@index([productId])
+  @@map("order_items")
+}
+
+// ============================================
+// NOTIFICATIONS
+// ============================================
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  type      NotificationType @default(SYSTEM)
+  title     String           @db.VarChar(300)
+  body      String           @db.Text
+  data      Json?
+  isRead    Boolean          @default(false)
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+// ============================================
+// BANNERS
+// ============================================
+
+model Banner {
+  id           String     @id @default(uuid())
+  title        String     @db.VarChar(200)
+  imageUrl     String     @db.VarChar(500)
+  linkUrl      String?    @db.VarChar(500)
+  type         BannerType @default(HOME)
+  isActive     Boolean    @default(true)
+  sortOrder    Int        @default(0)
+  startDate    DateTime?
+  endDate      DateTime?
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@index([type])
+  @@index([isActive])
+  @@map("banners")
+}
+
+// ============================================
+// REFERRAL
+// ============================================
+
+model Referral {
+  id             String   @id @default(uuid())
+  referrerId     String
+  referredId     String?
+  referralCode   String   @unique @db.VarChar(20)
+  isUsed         Boolean  @default(false)
+  rewardPoints   Int      @default(0)
+  usedAt         DateTime?
+  createdAt      DateTime @default(now())
+
+  referrer User  @relation("ReferrerUser", fields: [referrerId], references: [id])
+  referred User? @relation("ReferredUser", fields: [referredId], references: [id])
+
+  @@index([referrerId])
+  @@index([referredId])
+  @@index([referralCode])
+  @@map("referrals")
+}
+
+// ============================================
+// STATIC PAGES / CMS
+// ============================================
+
+model StaticPage {
+  id        String   @id @default(uuid())
+  title     String   @db.VarChar(200)
+  slug      String   @unique @db.VarChar(200)
+  content   String   @db.LongText
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("static_pages")
+}
+
+model FAQ {
+  id        String   @id @default(uuid())
+  question  String   @db.VarChar(500)
+  answer    String   @db.Text
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("faqs")
+}
+
+// ============================================
+// APP SETTINGS
+// ============================================
+
+model AppSetting {
+  id        String   @id @default(uuid())
+  key       String   @unique @db.VarChar(100)
+  value     String   @db.Text
+  group     String?  @db.VarChar(50)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([group])
+  @@map("app_settings")
+}
+
+// ============================================
+// ADMIN ACTIVITY LOG
+// ============================================
+
+model AdminActivityLog {
+  id         String   @id @default(uuid())
+  userId     String
+  action     String   @db.VarChar(200)
+  entity     String?  @db.VarChar(100)
+  entityId   String?  @db.VarChar(100)
+  details    Json?
+  ipAddress  String?  @db.VarChar(50)
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("admin_activity_logs")
+}
+
