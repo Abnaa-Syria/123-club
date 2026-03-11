@@ -1,4 +1,22 @@
-export const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
+// Normalize API base URL to always include `/api/v1`
+const RAW_API_URL = import.meta.env.VITE_API_URL;
+
+let resolvedApiBaseUrl;
+
+if (RAW_API_URL) {
+  // Remove trailing slash
+  const withoutTrailing = RAW_API_URL.replace(/\/$/, '');
+
+  // Ensure it ends with `/v1`
+  resolvedApiBaseUrl = withoutTrailing.endsWith('/v1')
+    ? withoutTrailing
+    : `${withoutTrailing}/v1`;
+} else {
+  // Fallback for local dev – Vite proxy handles `/api/v1` → backend
+  resolvedApiBaseUrl = '/api/v1';
+}
+
+export const API_BASE_URL = resolvedApiBaseUrl;
 
 export const USER_ROLES = {
   SUPER_ADMIN: 'SUPER_ADMIN',
